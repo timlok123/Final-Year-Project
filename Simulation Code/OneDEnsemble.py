@@ -6,6 +6,7 @@ Lastest Update on 10 Nov 2023 by Justin Chau
 """
 
 from OneDTransverseFieldModel import OneDTFIM
+import numpy as np
 
 class OneDEnsemble(OneDTFIM):
 
@@ -26,13 +27,13 @@ class OneDEnsemble(OneDTFIM):
         super().__init__(RealAxisLength,ImaginaryTimeAxisLength)
 
         self.SubSystemSize = SubSystemSize 
-        
+         
         if (self.SubSystemSize!=0):
             self.CheckingRange = SubSystemSize
         else:
             print("Remember to set the CheckingRange by using setCheckingRange()")
-            print("It is set to be half of RealAxisLength first")
-            self.CheckingRange = int(self.SystemSize/2)
+            print("It is set to be 0 first")
+            self.CheckingRange = 0
     
     def __InitializeNeigbour__(self):
         """
@@ -73,13 +74,50 @@ class OneDEnsemble(OneDTFIM):
             self.neighbour[ReL][int(self.ImaginaryTimeAxisLength/2)-1][2][1] = 0 
             self.neighbour[ReL][0][3][1] = int(self.ImaginaryTimeAxisLength/2) - 1 
 
-    def setCheckingRange(self,CR):
+    def SetCheckingRange(self,CR):
         """
         This is the setter of variables checking range 
         """
         self.CheckingRange = CR
-         
+        print("The Checking Range is now set to :",self.CheckingRange)
     
+    def MetropolisUpdate(self):
+        """
+        This is an overriding methods. This function is to update the 1D transverse field Ising 
+        model ensemble with Metropolis algorithm. It will change the self.TFIM (np.array) 
+        afterwards.
+
+        Instead of calculating the index directly, it will take the the neighbour from the 
+        neighbour array. 
+
+        """
+
+        for i in range(self.TotalMCsteps):
+            #1. Randomly choose Im-Length layer and SystemSize number 
+            SystemSizeIndexRandom = np.random.randint(0,self.SystemSize)
+            ImTimeAxisIndexRandom = np.random.randint(0,self.ImaginaryTimeAxisLength)
+            SpinAtThisSite = self.TFIM[SystemSizeIndexRandom][ImTimeAxisIndexRandom]
+
+            #2. Calculate the energy of its neighbour 
+            SumOfSpinInSameLayer = 0 
+            SumOfSpinInDiffLayer = 0 
+
+            LeftReLCoor  = self.neighbour[SystemSizeIndexRandom][ImTimeAxisIndexRandom][0][0]
+            RightReLCoor = self.neighbour[SystemSizeIndexRandom][ImTimeAxisIndexRandom][1][0]
+            UpImLCoor    = self.neighbour[SystemSizeIndexRandom][ImTimeAxisIndexRandom][2][1]
+            DownImLCoor  = self.neighbour[SystemSizeIndexRandom][ImTimeAxisIndexRandom][3][1]
+            
+            SumOfSpinInSameLayer = self.TFIM[LeftReLCoor][ImTimeAxisIndexRandom] + self.TFIM[RightReLCoor][ImTimeAxisIndexRandom]
+            SumOfSpinInDiffLayer = self.TFIM[SystemSizeIndexRandom][UpImLCoor] + self.TFIM[SystemSizeIndexRandom][DownImLCoor]
+
+            #3. Determine whether to flip or not  
+            DeltaETotal = 2*SpinAtThisSite*(self.J_x*SumOfSpinInSameLayer + self.J_y*SumOfSpinInDiffLayer)
+            
+            weight = np.exp(-DeltaETotal*self.beta_cl)
+
+            if (DeltaETotal <= 0) or (np.random.rand() < weight):
+                self.TFIM[SystemSizeIndexRandom][ImTimeAxisIndexRandom] *= -1
+
     def CheckingBoundaryCondition(self):
         """
         Checking whether the index in checking range in layer 
@@ -95,30 +133,81 @@ class OneDEnsemble(OneDTFIM):
                 self.TFIM[ReL_index][int(self.ImaginaryTimeAxisLength/2)-1]) or \
                 (self.TFIM[ReL_index][0] != \
                  self.TFIM[ReL_index][int(self.ImaginaryTimeAxisLength/2)])):
-                 return False
+                return False
         
         return True 
 
-    def CountingBCTrueWolff(self,TotalNoOfUpdate,bins=1):
+    
+    def CountingBCTrueMetro(self,TotalNoOfUpdate):
         """
-        This function will repeatedly call Wolff algo to update the configuration for 
-        TotalNoOfUpdate, and check how many times how many time 
-        CheckingBoundaryCondition() would return true. 
+        This function will repeatedly call Metropolis algorithm to update the configuration for 
+        TotalNoOfUpdate times, and check how many times CheckingBoundaryCondition() 
+        would return true. 
 
         @param TotalNoOfUpdate: Total no of updating the configurations by using Wolff 
-        @param bins: Divide TotalNoOfUpdate to be no of bins. Take average every bins time. 
+        
+        """
+
+        print("The RealAxisLength is: ",self.SystemSize)
+        print("The CheckingRange is: " ,self.CheckingRange)
+        print("The ImaginaryTimeAxisLength is: ", self.ImaginaryTimeAxisLength)
+
+        count = 0 
+        RatioList = [] 
+        binIteration = 100
+
+        #1. Thermalization 
+        for i in range(5000):
+            self.MetropolisUpdate()
+
+        for iteration in range(TotalNoOfUpdate):
+
+            #2. Taking data 
+            for i in range(binIteration):
+                self.MetropolisUpdate()
+                if (self.CheckingBoundaryCondition()):
+                    count += 1
+
+            #3. Record result 
+            RatioList.append(count/binIteration)
+            count = 0 
+
+            print(f"{iteration+1} iteration(s) completed.In 1 iteration, it will do {binIteration} MC steps update")
+            
+        return np.array(RatioList)
+
+    def CountingBCTrueWolff(self,TotalNoOfUpdate,RatioUpdate=1000):
+        """
+        This function will repeatedly call Wolff algo to update the configuration for 
+        TotalNoOfUpdate times, and check how many times CheckingBoundaryCondition() 
+        would return true. 
+
+        @param TotalNoOfUpdate: Total no of updating the configurations by using Wolff 
+        @param RatioUpdate: Calculate the ratio of (True/Iteration) for every RatioUpdate time
+        @return RatioList: The list that stores the average of the (True/Iteration) ratio 
         
         """
 
         count = 0 
+        RatioList = []
+        bins = TotalNoOfUpdate/RatioUpdate
+
+        for i in range(5000):
+            self.MetropolisUpdate()
+            
         for i in range(0,TotalNoOfUpdate):
+            
             self.WolffUpdateBFSList()
+
             if (self.CheckingBoundaryCondition()):
                 count += 1
-            if (i%10000 == 0) and (i!=0):
-                print(f"Iteration {i} completed.")
             
-        return count 
+            if (i%RatioUpdate == 0) and (i !=0):
+                RatioList.append(count/RatioUpdate)
+                count = 0
+                print(f"{i} iterations completed")
+            
+        return np.array(RatioList)
         
     """
     Below are the function used for debugging 

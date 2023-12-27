@@ -28,9 +28,10 @@ class OneDTFIM:
         self.TFIM = np.random.choice([1,-1],size=(RealAxisLength, \
                                                   ImaginaryTimeAxisLength))
 
-        #self.Temperature = 1           # set it to be 1 temporarily 
-        self.h = 1                     # set it to be 1 temporarily 
-        self.delta_tau = 0.1           # set it to be 0.1 temporarily 
+        # set h to be 1
+        self.h = 1      
+
+        self.delta_tau = 0.1        
         self.beta_cl = self.delta_tau
 
         self.gamma = -0.5*np.log(np.tanh(self.delta_tau*self.h))
@@ -42,6 +43,13 @@ class OneDTFIM:
 
         self.TotalMCsteps = RealAxisLength*ImaginaryTimeAxisLength 
         # 1 MC steps = 2D Ising model size
+
+
+    def SetDetlaTau(self,Dtau):
+        self.delta_tau = Dtau
+        self.beta_cl = Dtau
+        print("The delta tau is set to be :", self.delta_tau)
+        print("The beta_cl is set to be :", self.beta_cl)
 
     def __InitializeNeigbour__(self):
         """
@@ -95,6 +103,7 @@ class OneDTFIM:
         
         select_ReL = np.random.randint(0,self.SystemSize)
         select_ImL = np.random.randint(0,self.ImaginaryTimeAxisLength)
+        
         queue = [(select_ReL,select_ImL)]
         cluster = [(select_ReL,select_ImL)]
         visited = set()
@@ -116,10 +125,9 @@ class OneDTFIM:
                 NeighbourReL,NeighbourImL = tempNeighbourList[tempOrientation]
                 SpinAtNeighbourSite = self.TFIM[NeighbourReL][NeighbourImL]
 
-
                 if ((NeighbourReL,NeighbourImL) not in visited) and \
-                   (SpinAtNeighbourSite==SpinAtThisSite) and\
-                   (np.random.random_sample()<ReL_Prob):
+                   (SpinAtNeighbourSite == SpinAtThisSite) and\
+                   (np.random.rand() < ReL_Prob):
                     cluster.append((NeighbourReL,NeighbourImL))
                     queue.append((NeighbourReL,NeighbourImL))
                 
@@ -132,8 +140,8 @@ class OneDTFIM:
                 SpinAtNeighbourSite = self.TFIM[NeighbourReL][NeighbourImL]
 
                 if ((NeighbourReL,NeighbourImL) not in visited) and \
-                   (SpinAtNeighbourSite==SpinAtThisSite) and\
-                   (np.random.random_sample()<ImL_Prob):
+                   (SpinAtNeighbourSite == SpinAtThisSite) and\
+                   (np.random.rand() < ImL_Prob):
                     cluster.append((NeighbourReL,NeighbourImL))
                     queue.append((NeighbourReL,NeighbourImL))
                 
@@ -205,7 +213,6 @@ class OneDTFIM:
             ReL,ImL = s 
             self.TFIM[ReL][ImL] *= -1
 
-
     def MetropolisUpdate(self):
         """
         This function is to update the 1D transverse field Ising model with 
@@ -231,26 +238,16 @@ class OneDTFIM:
             DownIndex = (ImTimeAxisIndexRandom-1)%(self.ImaginaryTimeAxisLength)
             UpIndex = (ImTimeAxisIndexRandom+1)%(self.ImaginaryTimeAxisLength)
         
-            SumOfSpinInSameLayer = self.TFIM[ImTimeAxisIndexRandom][LeftIndex] + self.TFIM[ImTimeAxisIndexRandom][RightIndex]
-            SumOfSpinInDiffLayer = self.TFIM[DownIndex][SystemSizeIndexRandom] + self.TFIM[UpIndex][SystemSizeIndexRandom]
+            SumOfSpinInSameLayer =  self.TFIM[LeftIndex][ImTimeAxisIndexRandom] + self.TFIM[RightIndex][ImTimeAxisIndexRandom]
+            SumOfSpinInDiffLayer = self.TFIM[SystemSizeIndexRandom][DownIndex] + self.TFIM[SystemSizeIndexRandom][UpIndex]
 
-            #3. Determine whehter to flip or not  
-            DeltaETotal = 2*self.TFIM[ImTimeAxisIndexRandom][SystemSizeIndexRandom]* \
-                        (self.J_x*SumOfSpinInSameLayer + self.J_y*SumOfSpinInDiffLayer)
+            #3. Determine whether to flip or not  
+            DeltaETotal = 2*self.TFIM[SystemSizeIndexRandom][ImTimeAxisIndexRandom]*(self.J_x*SumOfSpinInSameLayer + self.J_y*SumOfSpinInDiffLayer)
             
             weight = np.exp(-DeltaETotal*self.beta_cl)
 
             if (DeltaETotal < 0) or (np.random.rand() < weight):
-                self.TFIM[ImTimeAxisIndexRandom][SystemSizeIndexRandom] *= -1 
-    
-    def MetropolisUpdateNtimes(self,times):
-        """
-        This function is to repeat the Metropolis update 
-        @param times: the number of Metropolic update you want to do 
-
-        """
-        for i in range(times):
-            self.MetropolisUpdate()
+                self.TFIM[SystemSizeIndexRandom][ImTimeAxisIndexRandom] *= -1 
 
     """
     Below are the function used for debugging 
@@ -274,6 +271,15 @@ class OneDTFIM:
         for name, value in variables.items():
             print(name, "=", value)
     
+    def get_variable(self,name):
+        """
+        This function would print all the instance variables of this class 
+        @name : name of that variables
+        
+        """
+        variable_value = vars(self).get(name)
+        print(f"{name} is set to be: ",variable_value)
+    
     def print_boundary_neigbour(self,ImL_index):
         """
         This function will print the neighbour (only up down) of the configuration in certain
@@ -287,6 +293,3 @@ class OneDTFIM:
             print(f"Up coordinates are ({self.neighbour[ReL_index][ImL_index][2][0]},{self.neighbour[ReL_index][ImL_index][2][1]})")
             print(f"Down coordinates are ({self.neighbour[ReL_index][ImL_index][3][0]},{self.neighbour[ReL_index][ImL_index][3][1]})")
         print()
-
-
-        
