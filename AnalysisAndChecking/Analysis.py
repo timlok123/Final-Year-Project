@@ -852,16 +852,85 @@ def LoadRenyiEntanglementEntropyDataWolffHalfSystemSize(
                                  - np.std(IndependentToGlued)/np.mean(IndependentToGlued)))/np.sqrt(NoOfBin)
             
         except:
-            print("Size{SystemSize}_SubSize{A}_ImL{SystemSize*10}_GI_WolffUpdateBFSList_{NoOfBin}_test is missing")
-        
-
-
+            print(f"Size{SystemSize}_SubSize{A}_ImL{SystemSize*10}_WolffUpdateBFSList_{NoOfBin}_test is missing")
     return EntropyArray
 
 
 def main():
 
-    temp3()
+    import matplotlib.pyplot as plt 
+    import numpy as np
+    from scipy.optimize import curve_fit
+
+    SystemSize = 32
+    NoOfBin = 30
+    array = LoadRenyiEntanglementEntropyDataWolffHalfSystemSize(
+            FolderName="SameSystemSizeL32",
+            SystemSize=SystemSize,
+            NoOfBin = NoOfBin)
+    mean_array = array[0][10::]
+    sd_array = array[1][10::]
+    SubSystemSize = np.array([11,12,13,14,15,16])
+
+    array12 = LoadRenyiEntanglementEntropyDataWolffHalfSystemSize(
+            FolderName="SameSystemSizeL12",
+            SystemSize=12,
+            NoOfBin = 30)
+
+
+    array16 = LoadRenyiEntanglementEntropyDataWolffHalfSystemSize(
+            FolderName="SameSystemSizeL16",
+            SystemSize=16,
+            NoOfBin = 50)
+    
+    array24 = LoadRenyiEntanglementEntropyDataWolffHalfSystemSize(
+            FolderName="SameSystemSizeL24",
+            SystemSize=24,
+            NoOfBin = 100)
+    
+    print(array24)
+
+
+    #2. Fitting to the formula 
+    popt_simulation, pcov = curve_fit(FittingFunctionZeroTemperature, SubSystemSize/SystemSize, mean_array)
+    popt_simulation12, pcov = curve_fit(FittingFunctionZeroTemperature, np.arange(1,7)/12, array12[0])
+    popt_simulation16, pcov = curve_fit(FittingFunctionZeroTemperature, np.arange(1,9)/16, array16[0])
+    popt_simulation24, pcov = curve_fit(FittingFunctionZeroTemperature, np.arange(9,13)/24, array24[0][8::])
+    sizeplot = np.linspace(0,0.98,100)
+
+    print(popt_simulation)
+    plt.plot(sizeplot,FittingFunctionZeroTemperature(sizeplot,*popt_simulation),label="Fitting")
+    plt.scatter(SubSystemSize/SystemSize,mean_array,label="Simulation result (Wolff)")
+
+    plt.plot(sizeplot,FittingFunctionZeroTemperature(sizeplot,*popt_simulation12),label="Fitting - 12")
+    plt.scatter(np.arange(1,7)/12,array12[0],label="Simulation result (Wolff)")
+
+    plt.plot(sizeplot,FittingFunctionZeroTemperature(sizeplot,*popt_simulation16),label="Fitting - 16")
+    plt.scatter(np.arange(1,9)/16,array16[0],label="Simulation result (Wolff)")
+
+    plt.plot(sizeplot,FittingFunctionZeroTemperature(sizeplot,*popt_simulation24),label="Fitting - 24")
+    plt.scatter(np.arange(9,13)/24,array24[0][8::],label="Simulation result (Wolff)")
+
+    plt.legend()
+    plt.xlim(0,1)
+    #plt.xscale("log")
+    plt.show()
+
+    SubSystemSizePlot = np.linspace(SubSystemSize[0],SubSystemSize[-1],1000)
+    plt.title(f"L=32 - Iteration {NoOfBin*10000} for each point")
+    plt.errorbar(np.log((SystemSize/np.pi)*np.sin(np.pi*SubSystemSize/SystemSize)),
+             mean_array,
+             yerr=sd_array,
+             label="Simulation result (Wolff)")
+    
+    arrayplot = np.linspace(0,4)
+    plt.plot(arrayplot,
+                    FittingFunctionZeroTemperature(arrayplot,*popt_simulation),
+                    label="Fitting - fix c = 1/2")
+    plt.xlim(0,30)
+    plt.xscale("log")
+    plt.legend()
+    plt.show()
     
     return 0 
 
