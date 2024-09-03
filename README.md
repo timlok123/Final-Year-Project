@@ -3,7 +3,7 @@
 ### Information about this repository 
 This GitHub Repository is set up to store the code of my final year project. My final project is writtern in OOP and it covers 
 
-1. The measurements of entanglement entropy of 1D transverse field Ising model
+1. The measurements of entanglement entropy of 1D transverse field Ising model via ratio trick 
 
 There are 2 main motivations for me setting to set up this repository
 
@@ -11,4 +11,4 @@ There are 2 main motivations for me setting to set up this repository
 2. To back up my final year project code
 
 ### Contact 
-Please feel free to contact me via u3577808@connect.hku.hk if you have any inquiries/ advice to my work. 
+Please feel free to contact me via justintlchau@connect.hku.hk if you have any inquiries/ advice to my work. 
